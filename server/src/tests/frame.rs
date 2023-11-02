@@ -1,93 +1,60 @@
-use super::*;
+use std::io::Cursor;
+use crate::frame::Frame;
+
+macro_rules! into_cursor {
+    ($b:tt) => {
+        Cursor::new(& $b[..])
+    }
+}
 
 #[test]
 fn validation_simple_string() {
-    let buff = b"+Hello\r\n";
-    assert_eq!(Frame::validate(buff), Ok(()));
-
-    let buff = b"+Hello\r";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    let buff = b"+\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    let buff = b"+";
-    assert_ne!(Frame::validate(buff), Ok(()));
+    assert_eq!(Frame::validate(&mut into_cursor!(b"+Hello\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"+hello\r")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"+\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"+")), Ok(()));
 }
 
 #[test]
 fn validation_error() {
-    let mut buff = b"-ERROR\r\n";
-    assert_eq!(Frame::validate(buff), Ok(()));
-
-    buff = b"-Error\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    buff = b"-Error\r";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    buff = b"-Error";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    buff = b"-\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
+    assert_eq!(Frame::validate(&mut into_cursor!(b"-ERROR\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"-Error\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"-Error\r")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"-Error")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"-\r\n")), Ok(()));
 }
 
 #[test]
 fn validation_int() {
-    let mut buff = b":0\r\n";
-    assert_eq!(Frame::validate(buff), Ok(()));
+    assert_eq!(Frame::validate(&mut into_cursor!(b":0\r\n")), Ok(()));
+    assert_eq!(Frame::validate(&mut into_cursor!(b":000001\r\n")), Ok(()));
+    assert_eq!(Frame::validate(&mut into_cursor!(b":992123\r\n")), Ok(()));
 
-    buff = b":000001\r\n";
-    assert_eq!(Frame::validate(buff), Ok(()));
+    let buff = format!(":{}\r\n", u64::MAX).as_bytes();
+    assert_eq!(Frame::validate(&mut into_cursor!(buff)), Ok(()));
 
-    buff = b":992123\r\n";
-    assert_eq!(Frame::validate(buff), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b":0 0\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b":0.0\r\n")), Ok(()));
 
-    buff = format!(b":{}\r\n", u64::MAX);
-    assert_eq!(Frame::validate(buff), Ok(()));
-
-    buff = b":0 0\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    buff = b":0.0\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    buff = format!(b":{}9\r\n", u64::MAX);
-    assert_ne!(Frame::validate(buff), Ok(()));
+    let buff = format!(":{}9\r\n", u64::MAX).as_bytes();
+    assert_ne!(Frame::validate(&mut into_cursor!(buff)), Ok(()));
 }
 
 #[test]
 fn validation_null() {
-    let mut buff = b"_\r\n";
-    assert_eq!(Frame::validate(buff), Ok(()));
-
-    buff = b"_asd\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
+    assert_eq!(Frame::validate(&mut into_cursor!(b"_\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"_asd\r\n")), Ok(()));
 }
 
 #[test]
 fn validation_bulk_string() {
-    let mut buff = b"$0005\r\nHello\r\n";
-    assert_eq!(Frame::validate(buff), Ok(()));
-
-    buff = b"$0000\r\n\r\n";
-    assert_eq!(Frame::validate(buff), Ok(()));
-
-    buff = b"$0004\r\nHello\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    buff = b"$\r\nHello\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    buff = b"$03\r\nHel\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    buff = b"$0003\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
-
-    buff = b"$0000\r\n";
-    assert_ne!(Frame::validate(buff), Ok(()));
+    assert_eq!(Frame::validate(&mut into_cursor!(b"$0005\r\nHello\r\n")), Ok(()));
+    assert_eq!(Frame::validate(&mut into_cursor!(b"$0000\r\n\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"$0004\r\nHello\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"$\r\nHello\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"$03\r\nHel\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"$0003\r\n")), Ok(()));
+    assert_ne!(Frame::validate(&mut into_cursor!(b"$0000\r\n")), Ok(()));
 }
 
 #[test]

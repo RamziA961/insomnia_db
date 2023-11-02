@@ -4,22 +4,6 @@ use crate::database::shared_state::SharedState;
 
 use super::job::Job;
 use chrono::{DateTime, Duration, TimeZone, Utc};
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub(crate) enum JobBuilderError {
-    #[error("Non-positive duration frequency: {0}")]
-    NonPositiveFrequency(Duration),
-
-    #[error("Invalid end date: {{ start: {0}, end: {1} }}")]
-    InvalidEndDate(DateTime<Utc>, DateTime<Utc>),
-
-    #[error("Non positive runs: {0}")]
-    NonPositiveRuns(u64),
-
-    #[error("Invalid configuration: {0}")]
-    InvalidConfiguration(String),
-}
 
 pub(crate) struct ScheduledJob {
     task: Box<dyn Job>, // can sub with job task
@@ -28,7 +12,7 @@ pub(crate) struct ScheduledJob {
     next_run: DateTime<Utc>,
     interval: Option<Duration>,
     n_runs: Option<u64>,
-    expired: bool
+    expired: bool,
 }
 
 impl ScheduledJob {
@@ -47,7 +31,7 @@ impl ScheduledJob {
             }
             v - 1
         });
-        
+
         self.next_run = if let Some(i) = self.interval {
             self.next_run + i
         } else {
@@ -227,7 +211,7 @@ impl JobBuilder {
             interval: self.interval,
             n_runs: self.n_runs,
             next_run: start,
-            expired: false
+            expired: false,
         })
     }
 }

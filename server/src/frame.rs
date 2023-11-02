@@ -7,7 +7,7 @@ use bytes::{Buf, Bytes};
 use thiserror::Error;
 use tracing::warn;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum FrameError {
     #[error("Type Mismatch Error: {0}")]
     TypeMismatch(String),
@@ -109,9 +109,7 @@ impl Frame {
                 String::from_utf8(l)
                     .map_err(|e| {
                         warn!(error = %e, "converting bytes to string failed");
-                        FrameError::ParsingError(format!(
-                            "Byte to string coversion failed. Bytes: {l:?}"
-                        ))
+                        FrameError::ParsingError(format!("Byte to string coversion failed.",))
                     })
                     .map(|v| Frame::Simple(v))
             }
@@ -120,9 +118,7 @@ impl Frame {
                 String::from_utf8(l)
                     .map_err(|e| {
                         warn!(error = %e, "converting bytes to string failed");
-                        FrameError::ParsingError(format!(
-                            "Byte to string coversion failed. Bytes: {l:?}"
-                        ))
+                        FrameError::ParsingError(format!("Byte to string coversion failed."))
                     })
                     .map(|v| Frame::Error(v))
             }
@@ -268,25 +264,7 @@ fn get_line<'a>(source: &mut Cursor<&'a [u8]>) -> Result<&'a [u8], FrameError> {
 }
 
 fn get_decimal(source: &mut Cursor<&[u8]>) -> Result<u64, FrameError> {
-    let mut l = get_line(source)?;
-
-    if l.len() > 8 {
-        return Err(FrameError::ProtocolError(
-            "Invalid frame format".to_string(),
-        ));
-    }
-
-    let l = if l.len() < 8 {
-        (0u8..(8 - l.len() as u8))
-            .into_iter()
-            .chain(l.iter().map(|v| v.clone()))
-            .collect::<Vec<_>>()
-            .as_slice()
-    } else {
-        l
-    };
-
-    let mut array = [0; 8];
-    array.copy_from_slice(l);
-    Ok(u64::from_be_bytes(array))
+    let l = get_line(source)?;
+    atoi::atoi::<u64>(l)
+        .ok_or_else(|| FrameError::ProtocolError("Invalid frame format".to_string()))
 }
