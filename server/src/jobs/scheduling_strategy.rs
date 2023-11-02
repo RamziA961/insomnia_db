@@ -118,6 +118,32 @@ where
             SchedulingStrategy::Between { start_at, .. } => start_at,
         }
     }
+
+    pub(crate) fn to_utc(&self) -> SchedulingStrategy<Utc> {
+        match self {
+            SchedulingStrategy::Once { start_at } => SchedulingStrategy::Once {
+                start_at: start_at.naive_utc().and_utc(),
+            },
+            SchedulingStrategy::NTimes {
+                n,
+                start_at,
+                interval,
+            } => SchedulingStrategy::NTimes {
+                start_at: start_at.naive_utc().and_utc(),
+                n: n.clone(),
+                interval: interval.clone(),
+            },
+            SchedulingStrategy::Between {
+                start_at,
+                end_at,
+                interval,
+            } => SchedulingStrategy::Between {
+                start_at: start_at.naive_utc().and_utc(),
+                end_at: end_at.naive_utc().and_utc(),
+                interval: interval.clone(),
+            },
+        }
+    }
 }
 
 impl<Tz> PartialOrd for SchedulingStrategy<Tz>

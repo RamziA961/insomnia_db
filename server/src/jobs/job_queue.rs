@@ -1,11 +1,13 @@
 use std::{collections::binary_heap::BinaryHeap, sync::Arc};
 
+use chrono::{TimeZone, Utc};
+use tracing::warn;
+
 use super::scheduled_job::ScheduledJob;
 use crate::database::shared_state::SharedState;
 
-#[derive(Debug)]
 pub(crate) struct JobQueue {
-    queue: BinaryHeap<ScheduledJob>,
+    queue: BinaryHeap<ScheduledJob<Utc>>,
 }
 
 impl JobQueue {
@@ -15,52 +17,46 @@ impl JobQueue {
         }
     }
 
-    pub(crate) fn push(&mut self, job: ScheduledJob) {
-        self.queue.push(job);
+    pub(crate) fn push<Tz>(&mut self, job: ScheduledJob<Tz>)
+    where
+        Tz: TimeZone,
+    {
+        self.queue.push(job.to_utc());
     }
 
-    pub(crate) fn run_ready(&mut self, state: Arc<SharedState>) -> Result<(), ()> {
-        let n_tasks_due = {
-            let mut count = 0;
-            for t in self.queue.iter() {
-                if !t.is_due() {
-                    break;
-                }
-                count += 1;
+    pub(crate) fn run_pending_jobs(&mut self, state: Arc<SharedState>) -> Result<(), ()> {
+        // More control over handling should be supported
+        // Should subsequent due jobs run after a job fails?
+        // Or should dependent subjobs be aggragated to allow for that behavior?
+
+        // Prevent tasks with small intervals from blocking other tasks by
+        // withholding them from the job queue until the end of the function
+        let mut executed = vec![];
+
+        while self.queue.peek().is_some_and(|v| v.is_due()) {
+            let mut job = self.queue.pop().unwrap();
+
+            job.run(state).map_err(|e| warn!("Job execution failed."));
+
+            if !job.has_expired() {
+                executed.push(job);
             }
-            count
-        };
-
-        if n_tasks_due == 0 {
-            return Ok(());
         }
 
-        let mut failed = false;
-        let mut layover: Vec<ScheduledJob> = Vec::with_capacity(n_tasks_due);
+        executed.into_iter().for_each(|v| self.queue.push(v));
 
-        for _ in 0..n_tasks_due {
-            let mut t = self.queue.pop().unwrap();
+        Ok(())
+    }
 
-            if failed {
-                t.reschedule();
-            } else {
-                if t.run(state.clone()).is_err() {
-                    failed = true;
-                }
-            }
+    pub(crate) fn peek(&mut self) -> Option<&ScheduledJob<Utc>> {
+        self.queue.peek()
+    }
 
-            layover.push(t);
-        }
+    pub(crate) fn pop(&mut self) -> Option<ScheduledJob<Utc>> {
+        self.queue.pop()
+    }
 
-        layover
-            .into_iter()
-            .filter(|t| !t.has_expired())
-            .for_each(|t| self.queue.push(t));
-
-        if failed {
-            Err(())
-        } else {
-            Ok(())
-        }
+    pub(crate) fn clear(&mut self) {
+        self.queue.clear()
     }
 }

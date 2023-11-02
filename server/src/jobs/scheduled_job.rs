@@ -4,7 +4,7 @@ use crate::database::shared_state::SharedState;
 
 use super::{
     job::Job,
-    scheduling_strategy::{SchedulingStrategy, SchedulingStrategyError},
+    scheduling_strategy::{self, SchedulingStrategy, SchedulingStrategyError},
 };
 use chrono::{DateTime, TimeZone, Utc};
 
@@ -29,7 +29,7 @@ where
         SchedulingStrategy::validate(&scheduling_strategy)?;
 
         let next_run = (match scheduling_strategy {
-            SchedulingStrategy::Once { start_at: at } => at,
+            SchedulingStrategy::Once { start_at } => start_at,
             SchedulingStrategy::NTimes { start_at, .. } => start_at,
             SchedulingStrategy::Between { start_at, .. } => start_at,
         })
@@ -58,7 +58,7 @@ where
         start >= Utc::now()
     }
 
-    pub(crate) fn run_job(&mut self, state: Arc<SharedState>) -> Result<(), ()> {
+    pub(crate) fn run(&mut self, state: Arc<SharedState>) -> Result<(), ()> {
         match self.scheduling_strategy {
             SchedulingStrategy::Once { .. } => self.expired = true,
             SchedulingStrategy::NTimes {
@@ -95,6 +95,15 @@ where
 
         self.task.run(state)
     }
+
+    pub(crate) fn to_utc(&self) -> ScheduledJob<Utc> {
+        ScheduledJob {
+            task: self.task,
+            scheduling_strategy: self.scheduling_strategy.to_utc(),
+            next_run: self.next_run.clone(),
+            expired: self.expired,
+        }
+    }
 }
 
 impl<Tz> PartialOrd for ScheduledJob<Tz>
@@ -102,7 +111,8 @@ where
     Tz: TimeZone,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.scheduling_strategy.partial_cmp(&other.scheduling_strategy)
+        self.scheduling_strategy
+            .partial_cmp(&other.scheduling_strategy)
     }
 }
 impl<Tz> Ord for ScheduledJob<Tz>
@@ -114,7 +124,7 @@ where
     }
 }
 
-impl<Tz> PartialEq for ScheduledJob<Tz> 
+impl<Tz> PartialEq for ScheduledJob<Tz>
 where
     Tz: TimeZone,
 {
@@ -123,4 +133,4 @@ where
     }
 }
 
-impl<Tz> Eq for ScheduledJob<Tz> where Tz: TimeZone, {}
+impl<Tz> Eq for ScheduledJob<Tz> where Tz: TimeZone {}
