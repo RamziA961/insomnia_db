@@ -120,20 +120,40 @@ where
     }
 }
 
-impl<Tz> Ord for SchedulingStrategy<Tz>
+impl<Tz> PartialOrd for SchedulingStrategy<Tz>
 where
     Tz: TimeZone,
 {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let diff = self
             .get_start_at()
             .signed_duration_since(other.get_start_at());
 
         // times further into the future have a lower priority
         match diff.cmp(&Duration::zero()) {
-            Ordering::Less => Ordering::Greater,
-            Ordering::Equal => Ordering::Equal,
-            Ordering::Greater => Ordering::Less,
+            Ordering::Less => Some(Ordering::Greater),
+            Ordering::Equal => Some(Ordering::Equal),
+            Ordering::Greater => Some(Ordering::Less),
         }
     }
 }
+
+impl<Tz> Ord for SchedulingStrategy<Tz>
+where
+    Tz: TimeZone,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl<Tz> PartialEq for SchedulingStrategy<Tz>
+where
+    Tz: TimeZone,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.get_start_at().eq(other.get_start_at())
+    }
+}
+
+impl<Tz> Eq for SchedulingStrategy<Tz> where Tz: TimeZone {}

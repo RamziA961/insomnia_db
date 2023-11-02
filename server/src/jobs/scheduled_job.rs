@@ -97,6 +97,14 @@ where
     }
 }
 
+impl<Tz> PartialOrd for ScheduledJob<Tz>
+where
+    Tz: TimeZone,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.scheduling_strategy.partial_cmp(&other.scheduling_strategy)
+    }
+}
 impl<Tz> Ord for ScheduledJob<Tz>
 where
     Tz: TimeZone,
@@ -105,3 +113,14 @@ where
         self.scheduling_strategy.cmp(&other.scheduling_strategy)
     }
 }
+
+impl<Tz> PartialEq for ScheduledJob<Tz> 
+where
+    Tz: TimeZone,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.eq(other)
+    }
+}
+
+impl<Tz> Eq for ScheduledJob<Tz> where Tz: TimeZone, {}
