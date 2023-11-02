@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use thiserror::Error;
 
@@ -21,7 +23,7 @@ where
     Tz: TimeZone,
 {
     Once {
-        at: DateTime<Tz>,
+        start_at: DateTime<Tz>,
     },
     NTimes {
         n: u64,
@@ -41,7 +43,7 @@ where
 {
     pub(crate) fn validate(&self) -> Result<(), SchedulingStrategyError> {
         match self {
-            Self::Once { at } => SchedulingStrategy::validate_start_date(at),
+            Self::Once { start_at } => SchedulingStrategy::validate_start_date(start_at),
             Self::NTimes {
                 n,
                 start_at,
@@ -107,5 +109,31 @@ where
                 "Interval must be greater than 0ms.".to_string(),
             )
         })
+    }
+
+    fn get_start_at(&self) -> &DateTime<Tz> {
+        match self {
+            SchedulingStrategy::Once { start_at } => start_at,
+            SchedulingStrategy::NTimes { start_at, .. } => start_at,
+            SchedulingStrategy::Between { start_at, .. } => start_at,
+        }
+    }
+}
+
+impl<Tz> Ord for SchedulingStrategy<Tz>
+where
+    Tz: TimeZone,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        let diff = self
+            .get_start_at()
+            .signed_duration_since(other.get_start_at());
+
+        // times further into the future have a lower priority
+        match diff.cmp(&Duration::zero()) {
+            Ordering::Less => Ordering::Greater,
+            Ordering::Equal => Ordering::Equal,
+            Ordering::Greater => Ordering::Less,
+        }
     }
 }

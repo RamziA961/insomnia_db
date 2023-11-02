@@ -1,10 +1,10 @@
-use std::io::Cursor;
 use crate::frame::Frame;
+use std::io::Cursor;
 
 macro_rules! into_cursor {
     ($b:tt) => {
-        Cursor::new(& $b[..])
-    }
+        Cursor::new(&$b[..])
+    };
 }
 
 #[test]
@@ -48,11 +48,23 @@ fn validation_null() {
 
 #[test]
 fn validation_bulk_string() {
-    assert_eq!(Frame::validate(&mut into_cursor!(b"$0005\r\nHello\r\n")), Ok(()));
+    assert_eq!(
+        Frame::validate(&mut into_cursor!(b"$0005\r\nHello\r\n")),
+        Ok(())
+    );
     assert_eq!(Frame::validate(&mut into_cursor!(b"$0000\r\n\r\n")), Ok(()));
-    assert_ne!(Frame::validate(&mut into_cursor!(b"$0004\r\nHello\r\n")), Ok(()));
-    assert_ne!(Frame::validate(&mut into_cursor!(b"$\r\nHello\r\n")), Ok(()));
-    assert_ne!(Frame::validate(&mut into_cursor!(b"$03\r\nHel\r\n")), Ok(()));
+    assert_ne!(
+        Frame::validate(&mut into_cursor!(b"$0004\r\nHello\r\n")),
+        Ok(())
+    );
+    assert_ne!(
+        Frame::validate(&mut into_cursor!(b"$\r\nHello\r\n")),
+        Ok(())
+    );
+    assert_ne!(
+        Frame::validate(&mut into_cursor!(b"$03\r\nHel\r\n")),
+        Ok(())
+    );
     assert_ne!(Frame::validate(&mut into_cursor!(b"$0003\r\n")), Ok(()));
     assert_ne!(Frame::validate(&mut into_cursor!(b"$0000\r\n")), Ok(()));
 }
