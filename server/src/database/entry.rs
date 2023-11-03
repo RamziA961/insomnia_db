@@ -8,8 +8,8 @@ pub(crate) struct BuilderError(#[from] anyhow::Error);
 
 #[derive(Debug)]
 pub(crate) struct Entry {
-    buf: Bytes,
-    expiration: Option<Instant>,
+    pub(super) buf: Bytes,
+    pub(super) expiration: Option<Instant>,
 }
 
 pub(crate) struct Builder {
@@ -43,8 +43,8 @@ impl Builder {
         self
     }
 
-    pub(crate) fn with_exiration(mut self, expiry: Instant) -> Self {
-        self.expiration = Some(expiry);
+    pub(crate) fn with_expiration(mut self, expiry: Option<Instant>) -> Self {
+        self.expiration = expiry;
         self
     }
 

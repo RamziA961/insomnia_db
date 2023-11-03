@@ -1,6 +1,5 @@
 use super::database::Database;
 
-#[derive(Debug)]
 pub(crate) struct DatabaseGuard {
     db: Database,
 }

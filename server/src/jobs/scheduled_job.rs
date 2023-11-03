@@ -4,7 +4,7 @@ use crate::database::shared_state::SharedState;
 
 use super::{
     job::Job,
-    scheduling_strategy::{self, SchedulingStrategy, SchedulingStrategyError},
+    scheduling_strategy::{SchedulingStrategy, SchedulingStrategyError},
 };
 use chrono::{DateTime, TimeZone, Utc};
 
@@ -12,7 +12,7 @@ pub(crate) struct ScheduledJob<Tz>
 where
     Tz: TimeZone,
 {
-    task: Box<dyn Job>,
+    task: Box<dyn Job + Sync>,
     scheduling_strategy: SchedulingStrategy<Tz>,
     next_run: DateTime<Utc>,
     expired: bool,
@@ -23,12 +23,12 @@ where
     Tz: TimeZone,
 {
     pub fn try_new(
-        task: Box<dyn Job>,
+        task: Box<dyn Job + Sync>,
         scheduling_strategy: SchedulingStrategy<Tz>,
     ) -> Result<Self, SchedulingStrategyError> {
         SchedulingStrategy::validate(&scheduling_strategy)?;
 
-        let next_run = (match scheduling_strategy {
+        let next_run = (match &scheduling_strategy {
             SchedulingStrategy::Once { start_at } => start_at,
             SchedulingStrategy::NTimes { start_at, .. } => start_at,
             SchedulingStrategy::Between { start_at, .. } => start_at,
@@ -49,31 +49,31 @@ where
     }
 
     pub(crate) fn is_due(&self) -> bool {
-        let start = match self.scheduling_strategy {
+        let start = match &self.scheduling_strategy {
             SchedulingStrategy::Once { start_at: at } => at,
             SchedulingStrategy::NTimes { start_at, .. } => start_at,
             SchedulingStrategy::Between { start_at, .. } => start_at,
         };
 
-        start >= Utc::now()
+        start >= &Utc::now()
     }
 
     pub(crate) fn run(&mut self, state: Arc<SharedState>) -> Result<(), ()> {
-        match self.scheduling_strategy {
+        match &self.scheduling_strategy {
             SchedulingStrategy::Once { .. } => self.expired = true,
             SchedulingStrategy::NTimes {
                 n,
                 start_at,
                 interval,
             } => {
-                if n == 1 {
+                if n == &1 {
                     self.expired = true;
                 }
 
                 self.scheduling_strategy = SchedulingStrategy::NTimes {
                     n: n - 1,
-                    start_at: start_at + interval,
-                    interval,
+                    start_at: start_at.clone() + *interval,
+                    interval: *interval,
                 }
             }
             SchedulingStrategy::Between {
@@ -81,13 +81,13 @@ where
                 end_at,
                 interval,
             } => {
-                if end_at - start_at <= interval {
+                if end_at.clone() - start_at.clone() <= *interval {
                     self.expired = true;
                 } else {
                     self.scheduling_strategy = SchedulingStrategy::Between {
-                        start_at: start_at + interval,
-                        end_at,
-                        interval,
+                        start_at: start_at.clone() + *interval,
+                        end_at: end_at.clone(),
+                        interval: *interval,
                     }
                 }
             }
@@ -96,7 +96,12 @@ where
         self.task.run(state)
     }
 
-    pub(crate) fn to_utc(&self) -> ScheduledJob<Utc> {
+    /// Consumes a `ScheduledJob` with a generic [`SchedulingStrategy`] and
+    /// returns one fixed to the [`Utc`] timezone.
+    ///
+    /// [Utc]: chrono::Utc
+    /// [ScedulingStrategy]: super::scheduling_strategy::ScedulingStrategy
+    pub(crate) fn to_utc(self) -> ScheduledJob<Utc> {
         ScheduledJob {
             task: self.task,
             scheduling_strategy: self.scheduling_strategy.to_utc(),
@@ -129,7 +134,7 @@ where
     Tz: TimeZone,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.eq(other)
+        self.scheduling_strategy.eq(&other.scheduling_strategy)
     }
 }
 
