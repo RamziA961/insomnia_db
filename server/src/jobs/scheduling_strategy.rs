@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, fmt::Debug};
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use thiserror::Error;
@@ -183,3 +183,28 @@ where
 }
 
 impl<Tz> Eq for SchedulingStrategy<Tz> where Tz: TimeZone {}
+
+impl<Tz> Debug for SchedulingStrategy<Tz>
+where
+    Tz: TimeZone,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            SchedulingStrategy::Once { start_at } => format!("Once {{ start_at: {start_at:?} }}"),
+            SchedulingStrategy::NTimes {
+                n,
+                start_at,
+                interval,
+            } => format!("NTimes {{ n: {n}, start_at: {start_at:?}, interval: {interval} }}"),
+            SchedulingStrategy::Between {
+                start_at,
+                end_at,
+                interval,
+            } => format!(
+                "Between {{ start_at: {start_at:?}, end_at: {end_at:?}, interval: {interval} }}"
+            ),
+        };
+
+        write!(f, "{}", s)
+    }
+}

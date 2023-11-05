@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, sync::Arc};
+use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
 use crate::database::shared_state::SharedState;
 
@@ -7,12 +7,13 @@ use super::{
     scheduling_strategy::{SchedulingStrategy, SchedulingStrategyError},
 };
 use chrono::{DateTime, TimeZone, Utc};
+use tracing::error;
 
 pub(crate) struct ScheduledJob<Tz>
 where
     Tz: TimeZone,
 {
-    task: Box<dyn Job + Sync>,
+    task: Box<dyn Job + Send + Sync>,
     scheduling_strategy: SchedulingStrategy<Tz>,
     next_run: DateTime<Utc>,
     expired: bool,
@@ -23,10 +24,13 @@ where
     Tz: TimeZone,
 {
     pub fn try_new(
-        task: Box<dyn Job + Sync>,
+        task: Box<dyn Job + Send + Sync>,
         scheduling_strategy: SchedulingStrategy<Tz>,
     ) -> Result<Self, SchedulingStrategyError> {
-        SchedulingStrategy::validate(&scheduling_strategy)?;
+        SchedulingStrategy::validate(&scheduling_strategy).map_err(|e| {
+            error!(error = %e, "Invalid scheduling strategy.");
+            e
+        })?;
 
         let next_run = (match &scheduling_strategy {
             SchedulingStrategy::Once { start_at } => start_at,
@@ -139,3 +143,16 @@ where
 }
 
 impl<Tz> Eq for ScheduledJob<Tz> where Tz: TimeZone {}
+
+impl<Tz> Debug for ScheduledJob<Tz>
+where
+    Tz: TimeZone,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ScheduledJob {{ next_run: {:?}, strategy: {:?}, {} }}",
+            self.next_run, self.scheduling_strategy, self.expired
+        )
+    }
+}

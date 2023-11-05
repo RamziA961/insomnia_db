@@ -1,5 +1,5 @@
 use super::{entry, shared_state::SharedState, state::State};
-use crate::jobs::job_queue::JobQueue;
+use crate::jobs::job_queue::{self, JobQueue};
 
 use bytes::Bytes;
 use std::{
@@ -10,6 +10,7 @@ use tokio::{
     sync::{broadcast, Notify},
     time::{Duration, Instant},
 };
+use tracing::instrument;
 
 #[derive(Clone)]
 pub(crate) struct Database {
@@ -19,26 +20,29 @@ pub(crate) struct Database {
 
 impl Database {
     pub(crate) fn new() -> Self {
-        let db = Self {
-            shared_state: Arc::new(SharedState {
-                state: Mutex::new(State {
-                    data: BTreeMap::new(),
-                    pub_sub_map: HashMap::new(),
-                    expiration_set: BTreeSet::new(),
-                    active: true,
-                }),
-                expiration_task: Notify::new(),
+        let shared_state = Arc::new(SharedState {
+            state: Mutex::new(State {
+                data: BTreeMap::new(),
+                pub_sub_map: HashMap::new(),
+                expiration_set: BTreeSet::new(),
+                active: true,
             }),
-            job_queue: Arc::new(JobQueue::new()),
-        };
+            expiration_task: Notify::new(),
+        });
 
-        // background task for job queue
-        tokio::spawn(async { todo!() });
+        let job_queue = Arc::new(JobQueue::new());
 
         //background task for cleaning expired data
-        tokio::spawn(async { todo!() });
+        tokio::spawn(purge_expired(shared_state.clone()));
 
-        db
+        // background task for job queue
+        // tokio::spawn(async move {
+        // });
+
+        Self {
+            shared_state,
+            job_queue,
+        }
     }
 
     pub(crate) fn get(&self, key: &str) -> Option<Bytes> {
@@ -123,5 +127,19 @@ impl Database {
 
     fn halt_background_tasks(&self) {
         todo!()
+    }
+}
+
+#[instrument(name = "purge_expired")]
+async fn purge_expired(shared: Arc<SharedState>) {
+    while !shared.has_shutdown() {
+        if let Some(time) = shared.purge_expired() {
+            tokio::select! {
+                _ = tokio::time::sleep_until(time) => {},
+                _ = shared.expiration_task.notified() => {}
+            }
+        } else {
+            shared.expiration_task.notified().await;
+        }
     }
 }

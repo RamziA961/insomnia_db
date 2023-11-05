@@ -1,11 +1,12 @@
 use std::{collections::binary_heap::BinaryHeap, sync::Arc};
 
 use chrono::{TimeZone, Utc};
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use super::scheduled_job::ScheduledJob;
 use crate::database::shared_state::SharedState;
 
+#[derive(Debug)]
 pub(crate) struct JobQueue {
     queue: BinaryHeap<ScheduledJob<Utc>>,
 }
@@ -24,6 +25,7 @@ impl JobQueue {
         self.queue.push(job.to_utc());
     }
 
+    #[instrument(name = "run_pending_jobs")]
     pub(crate) fn run_pending_jobs(&mut self, state: Arc<SharedState>) -> Result<(), ()> {
         // More control over handling should be supported
         // Should subsequent due jobs run after a job fails?
@@ -36,7 +38,10 @@ impl JobQueue {
         while self.queue.peek().is_some_and(|v| v.is_due()) {
             let mut job = self.queue.pop().unwrap();
 
-            job.run(state).map_err(|e| warn!("Job execution failed."));
+            job.run(state.clone()).map_err(|e| {
+                warn!("Job execution failed.");
+                e
+            });
 
             if !job.has_expired() {
                 executed.push(job);
