@@ -35,6 +35,10 @@ where
         end_at: DateTime<Tz>,
         interval: Duration,
     },
+    Indefinite {
+        start_at: DateTime<Tz>,
+        interval: Duration,
+    },
 }
 
 impl<Tz> SchedulingStrategy<Tz>
@@ -67,6 +71,10 @@ where
                 SchedulingStrategy::<Tz>::validate_invterval(interval)?;
                 SchedulingStrategy::validate_start_date(start_at)?;
                 SchedulingStrategy::validate_end_date(start_at, end_at)
+            }
+            SchedulingStrategy::Indefinite { start_at, interval } => {
+                SchedulingStrategy::<Tz>::validate_invterval(interval)?;
+                SchedulingStrategy::validate_start_date(start_at)
             }
         }
     }
@@ -111,11 +119,12 @@ where
         })
     }
 
-    fn get_start_at(&self) -> &DateTime<Tz> {
+    pub(crate) fn get_start_at(&self) -> &DateTime<Tz> {
         match self {
             SchedulingStrategy::Once { start_at } => start_at,
             SchedulingStrategy::NTimes { start_at, .. } => start_at,
             SchedulingStrategy::Between { start_at, .. } => start_at,
+            SchedulingStrategy::Indefinite { start_at, .. } => start_at,
         }
     }
 
@@ -142,6 +151,12 @@ where
                 end_at: end_at.naive_utc().and_utc(),
                 interval: interval.clone(),
             },
+            SchedulingStrategy::Indefinite { start_at, interval } => {
+                SchedulingStrategy::Indefinite {
+                    start_at: start_at.naive_utc().and_utc(),
+                    interval: interval.clone(),
+                }
+            }
         }
     }
 }
@@ -153,6 +168,7 @@ where
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let diff = self
             .get_start_at()
+            .clone()
             .signed_duration_since(other.get_start_at());
 
         // times further into the future have a lower priority
@@ -203,8 +219,10 @@ where
             } => format!(
                 "Between {{ start_at: {start_at:?}, end_at: {end_at:?}, interval: {interval} }}"
             ),
+            SchedulingStrategy::Indefinite { start_at, interval } => {
+                format!("Indefinite {{ start_at: {start_at:?}, interval: {interval} }}")
+            }
         };
-
         write!(f, "{}", s)
     }
 }
