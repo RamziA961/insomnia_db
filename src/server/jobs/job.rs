@@ -71,7 +71,7 @@
 //
 // impl_into_job!();
 
-use crate::database::shared_state::SharedState;
+use crate::server::database::shared_state::SharedState;
 use std::{marker::PhantomData, sync::Arc};
 
 pub(crate) struct JobTask<F, I> {

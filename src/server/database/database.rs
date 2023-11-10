@@ -1,5 +1,5 @@
 use super::{entry, shared_state::SharedState, state::State};
-use crate::jobs::job_queue::{self, JobQueue};
+use crate::server::jobs::job_queue::{self, JobQueue};
 
 use bytes::Bytes;
 use std::{
@@ -130,8 +130,12 @@ impl Database {
             .unwrap_or(0)
     }
 
-    fn halt_background_tasks(&self) {
-        todo!()
+    pub(super) fn halt_background_tasks(&self) {
+        let mut lock = self.shared_state.state.lock().unwrap();
+        lock.active = false;
+        drop(lock);
+        self.shared_state.expiration_task.notify_one();
+        self.shared_state.job_queue_task.notify_one();
     }
 }
 

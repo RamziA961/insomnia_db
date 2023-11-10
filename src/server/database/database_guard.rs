@@ -14,6 +14,6 @@ impl DatabaseGuard {
 
 impl Drop for DatabaseGuard {
     fn drop(&mut self) {
-        todo!()
+        self.db.halt_background_tasks();
     }
 }

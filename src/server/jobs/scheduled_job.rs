@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
-use crate::database::shared_state::SharedState;
+use crate::server::database::shared_state::SharedState;
 
 use super::{
     job::Job,

@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use tracing::{instrument, warn};
 
 use super::scheduled_job::ScheduledJob;
-use crate::database::shared_state::SharedState;
+use crate::server::database::shared_state::SharedState;
 
 #[derive(Debug)]
 pub(crate) struct JobQueue {
