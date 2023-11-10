@@ -9,6 +9,7 @@ use super::state::State;
 pub(crate) struct SharedState {
     pub(crate) state: Mutex<State>,
     pub(crate) expiration_task: Notify,
+    pub(crate) job_queue_task: Notify,
 }
 
 impl SharedState {
@@ -35,7 +36,7 @@ impl SharedState {
         None
     }
 
-    pub(super) fn has_shutdown(&self) -> bool {
+    pub(crate) fn has_shutdown(&self) -> bool {
         !self.state.lock().unwrap().active
     }
 }

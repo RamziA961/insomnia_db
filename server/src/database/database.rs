@@ -15,7 +15,7 @@ use tracing::instrument;
 #[derive(Clone)]
 pub(crate) struct Database {
     shared_state: Arc<SharedState>,
-    job_queue: Arc<JobQueue>,
+    job_queue: Arc<tokio::sync::Mutex<JobQueue>>,
 }
 
 impl Database {
@@ -28,9 +28,10 @@ impl Database {
                 active: true,
             }),
             expiration_task: Notify::new(),
+            job_queue_task: Notify::new(),
         });
 
-        let job_queue = Arc::new(JobQueue::new());
+        let job_queue = Arc::new(tokio::sync::Mutex::new(JobQueue::new()));
 
         //background task for cleaning expired data
         tokio::spawn(purge_expired(shared_state.clone()));
@@ -38,6 +39,10 @@ impl Database {
         // background task for job queue
         // tokio::spawn(async move {
         // });
+        tokio::spawn(job_queue::run_background_task(
+            shared_state.clone(),
+            job_queue.clone(),
+        ));
 
         Self {
             shared_state,
@@ -132,7 +137,7 @@ impl Database {
 
 #[instrument(name = "purge_expired")]
 async fn purge_expired(shared: Arc<SharedState>) {
-    while !shared.has_shutdown() {
+    while shared.has_shutdown() {
         if let Some(time) = shared.purge_expired() {
             tokio::select! {
                 _ = tokio::time::sleep_until(time) => {},

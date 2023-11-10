@@ -1,6 +1,7 @@
 use std::{collections::binary_heap::BinaryHeap, sync::Arc};
 
 use chrono::{TimeZone, Utc};
+use tokio::sync::Mutex;
 use tracing::{instrument, warn};
 
 use super::scheduled_job::ScheduledJob;
@@ -38,9 +39,8 @@ impl JobQueue {
         while self.queue.peek().is_some_and(|v| v.is_due()) {
             let mut job = self.queue.pop().unwrap();
 
-            job.run(state.clone()).map_err(|e| {
+            let _ = job.run(state.clone()).map_err(|_| {
                 warn!("Job execution failed.");
-                e
             });
 
             if !job.has_expired() {
@@ -53,7 +53,7 @@ impl JobQueue {
         Ok(())
     }
 
-    pub(crate) fn peek(&mut self) -> Option<&ScheduledJob<Utc>> {
+    pub(crate) fn peek(&self) -> Option<&ScheduledJob<Utc>> {
         self.queue.peek()
     }
 
@@ -63,5 +63,32 @@ impl JobQueue {
 
     pub(crate) fn clear(&mut self) {
         self.queue.clear()
+    }
+}
+
+pub(crate) async fn run_background_task(shared: Arc<SharedState>, queue: Arc<Mutex<JobQueue>>) {
+    use tokio::time::Instant;
+
+    while !shared.clone().has_shutdown() {
+        let mut lock = queue.lock().await;
+        let next = lock.peek();
+
+        match next {
+            Some(job) if job.is_due() => {
+                lock.run_pending_jobs(shared.clone());
+            }
+            Some(job) => {
+                let diff = job.due_at().clone() - Utc::now();
+                let wake_at = Instant::now() + diff.to_std().unwrap();
+
+                tokio::select! {
+                    _ = tokio::time::sleep_until(wake_at) => {},
+                    _ = shared.job_queue_task.notified() => {}
+                };
+            }
+            None => {
+                shared.job_queue_task.notified().await;
+            }
+        }
     }
 }

@@ -32,9 +32,7 @@ where
             e
         })?;
 
-        let next_run = scheduling_strategy.get_start_at()
-            .naive_utc()
-            .and_utc();
+        let next_run = scheduling_strategy.get_start_at().naive_utc().and_utc();
 
         Ok(Self {
             task,
@@ -50,6 +48,10 @@ where
 
     pub(crate) fn is_due(&self) -> bool {
         self.scheduling_strategy.to_utc().get_start_at() >= &Utc::now()
+    }
+
+    pub(crate) fn due_at(&self) -> &DateTime<Utc> {
+        &self.next_run
     }
 
     pub(crate) fn run(&mut self, state: Arc<SharedState>) -> Result<(), ()> {
@@ -86,10 +88,10 @@ where
                 }
             }
             SchedulingStrategy::Indefinite { start_at, interval } => {
-               self.scheduling_strategy = SchedulingStrategy::Indefinite {
+                self.scheduling_strategy = SchedulingStrategy::Indefinite {
                     start_at: start_at.clone() + *interval,
-                    interval: *interval
-               } 
+                    interval: *interval,
+                }
             }
         }
 
