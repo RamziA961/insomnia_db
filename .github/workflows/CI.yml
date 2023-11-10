@@ -38,7 +38,7 @@ jobs:
          
     - name: Style server check
       run: | 
-        if ! cargo fmt --check --manifest-path=server/Cargo.toml; then
+        if ! cargo fmt --check; then
           printf "Please run \`cargo fmt --check --manifest-path=server/Cargo.toml\` to ensure code style standards are met."
           exit 1
         fi

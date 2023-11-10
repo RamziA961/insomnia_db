@@ -4,7 +4,6 @@ pub(crate) mod connection;
 pub(crate) mod frame;
 pub(crate) mod parse;
 
-
 #[cfg(feature = "server")]
 pub(crate) mod server;
 
