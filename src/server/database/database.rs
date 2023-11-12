@@ -12,7 +12,7 @@ use tokio::{
 };
 use tracing::instrument;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Database {
     shared_state: Arc<SharedState>,
     job_queue: Arc<tokio::sync::Mutex<JobQueue>>,

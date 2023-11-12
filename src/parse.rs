@@ -34,8 +34,24 @@ impl Parse {
         self.parts.next().ok_or(ParseError::EndOfStream)
     }
 
+    pub(crate) fn peek(&self) -> Result<Frame, ParseError> {
+        self.parts.clone().next().ok_or(ParseError::EndOfStream)
+    }
+
     pub(crate) fn next_string(&mut self) -> Result<String, ParseError> {
         match self.next()? {
+            Frame::Simple(s) => Ok(s),
+            Frame::Bulk(bs) => std::str::from_utf8(&bs[..])
+                .map(|s| s.to_string())
+                .map_err(|_| ParseError::ProtocolError("Invalid bulk string.".to_string())),
+            frame => Err(ParseError::ProtocolError(format!(
+                "Expected simple frame or bulk frame. Found: {frame}"
+            ))),
+        }
+    }
+
+    pub(crate) fn peek_string(&self) -> Result<String, ParseError> {
+        match self.peek()? {
             Frame::Simple(s) => Ok(s),
             Frame::Bulk(bs) => std::str::from_utf8(&bs[..])
                 .map(|s| s.to_string())

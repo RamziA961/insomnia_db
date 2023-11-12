@@ -36,7 +36,7 @@ impl Connection {
         }
     }
 
-    pub(crate) async fn read_frame<C>(&mut self) -> Result<Option<Frame>, DatabaseError> {
+    pub(crate) async fn read_frame(&mut self) -> Result<Option<Frame>, DatabaseError> {
         loop {
             if let Some(frame) = self.parse_frame()? {
                 return Ok(Some(frame));

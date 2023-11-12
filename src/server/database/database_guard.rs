@@ -1,5 +1,6 @@
 use super::database::Database;
 
+#[derive(Clone, Debug)]
 pub(crate) struct DatabaseGuard {
     db: Database,
 }
@@ -9,6 +10,10 @@ impl DatabaseGuard {
         Self {
             db: Database::new(),
         }
+    }
+
+    pub(crate) fn inner(&self) -> Database {
+        self.db.clone()
     }
 }
 
