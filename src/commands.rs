@@ -1,8 +1,11 @@
+#[cfg(feature = "server")]
 use async_trait::async_trait;
 
-use crate::parse::Parse;
+use bytes::Bytes;
+use std::pin::Pin;
+use tokio_stream::Stream;
 
-use crate::{connection::Connection, frame::Frame};
+use crate::{connection::Connection, frame::Frame, parse::Parse};
 
 #[cfg(feature = "server")]
 use crate::server::{database::database::Database, shutdown_listener::ShutdownListener};
@@ -11,17 +14,22 @@ pub(crate) mod get;
 pub(crate) mod ping;
 pub(crate) mod publish;
 pub(crate) mod set;
+pub(crate) mod subscribe;
 
 use get::Get;
 use ping::Ping;
 use publish::Publish;
 use set::Set;
+use subscribe::Subscribe;
+
+type MessageStream = Pin<Box<dyn Stream<Item = Bytes> + Send + Sync>>;
 
 pub(crate) enum SupportedCommand {
     Get(Get),
     Ping(Ping),
     Publish(Publish),
     Set(Set),
+    Subscribe(Subscribe),
 }
 
 #[cfg(feature = "server")]
@@ -70,6 +78,9 @@ pub(crate) fn from_frame(frame: Frame) -> anyhow::Result<SupportedCommand> {
         }
         rep if rep == Publish::representation() => {
             SupportedCommand::Publish(Publish::parse_from_frame(&mut parser)?)
+        }
+        rep if rep == Subscribe::representation() => {
+            SupportedCommand::Subscribe(Subscribe::parse_from_frame(&mut parser)?)
         }
         // unrecognized command
         _ => todo!(),
