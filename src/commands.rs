@@ -9,15 +9,18 @@ use crate::server::{database::database::Database, shutdown_listener::ShutdownLis
 
 pub(crate) mod get;
 pub(crate) mod ping;
+pub(crate) mod publish;
 pub(crate) mod set;
 
 use get::Get;
 use ping::Ping;
+use publish::Publish;
 use set::Set;
 
 pub(crate) enum SupportedCommand {
     Get(Get),
     Ping(Ping),
+    Publish(Publish),
     Set(Set),
 }
 
@@ -64,6 +67,9 @@ pub(crate) fn from_frame(frame: Frame) -> anyhow::Result<SupportedCommand> {
         }
         rep if rep == Set::representation() => {
             SupportedCommand::Set(Set::parse_from_frame(&mut parser)?)
+        }
+        rep if rep == Publish::representation() => {
+            SupportedCommand::Publish(Publish::parse_from_frame(&mut parser)?)
         }
         // unrecognized command
         _ => todo!(),
