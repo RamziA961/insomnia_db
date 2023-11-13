@@ -2,16 +2,21 @@ use async_trait::async_trait;
 
 use crate::parse::Parse;
 
-#[cfg(feature = "server")]
-use crate::{
-    connection::Connection,
-    frame::Frame,
-    server::{database::database::Database, shutdown_listener::ShutdownListener},
-};
+use crate::{connection::Connection, frame::Frame};
 
+#[cfg(feature = "server")]
+use crate::server::{database::database::Database, shutdown_listener::ShutdownListener};
+
+pub(crate) mod get;
 pub(crate) mod ping;
 
+use get::Get;
 use ping::Ping;
+
+pub(crate) enum SupportedCommand {
+    Get(Get),
+    Ping(Ping),
+}
 
 #[cfg(feature = "server")]
 #[async_trait]
@@ -37,7 +42,7 @@ where
 }
 
 #[cfg(feature = "server")]
-pub(crate) fn from_frame(frame: Frame) -> anyhow::Result<impl Command + Execute> {
+pub(crate) fn from_frame(frame: Frame) -> anyhow::Result<SupportedCommand> {
     use tracing::error;
 
     let mut parser = Parse::new(frame).map_err(|e| {
@@ -48,7 +53,12 @@ pub(crate) fn from_frame(frame: Frame) -> anyhow::Result<impl Command + Execute>
     let cmd_rep = parser.next_string()?.to_lowercase();
 
     let cmd = match cmd_rep {
-        rep if rep == Ping::representation() => Ping::parse_from_frame(&mut parser)?,
+        rep if rep == Ping::representation() => {
+            SupportedCommand::Ping(Ping::parse_from_frame(&mut parser)?)
+        }
+        rep if rep == Get::representation() => {
+            SupportedCommand::Get(Get::parse_from_frame(&mut parser)?)
+        }
         // unrecognized command
         _ => todo!(),
     };
