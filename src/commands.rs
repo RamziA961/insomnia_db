@@ -9,13 +9,16 @@ use crate::server::{database::database::Database, shutdown_listener::ShutdownLis
 
 pub(crate) mod get;
 pub(crate) mod ping;
+pub(crate) mod set;
 
 use get::Get;
 use ping::Ping;
+use set::Set;
 
 pub(crate) enum SupportedCommand {
     Get(Get),
     Ping(Ping),
+    Set(Set),
 }
 
 #[cfg(feature = "server")]
@@ -58,6 +61,9 @@ pub(crate) fn from_frame(frame: Frame) -> anyhow::Result<SupportedCommand> {
         }
         rep if rep == Get::representation() => {
             SupportedCommand::Get(Get::parse_from_frame(&mut parser)?)
+        }
+        rep if rep == Set::representation() => {
+            SupportedCommand::Set(Set::parse_from_frame(&mut parser)?)
         }
         // unrecognized command
         _ => todo!(),
